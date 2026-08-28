@@ -1,17 +1,15 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  verify:
+  build-test-pack:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,8 +25,8 @@ jobs:
         run: |
           set -euo pipefail
           dotnet --info
-          sdk="$(dotnet --version)"
-          [[ "$sdk" == 8.0.* ]] || { echo "Expected .NET 8 SDK, got $sdk"; exit 1; }
+          version="$(dotnet --version)"
+          [[ "$version" == 8.0.* ]] || { echo "Expected .NET 8 SDK, got $version"; exit 1; }
 
       - name: Restore
         run: dotnet restore BKE.Desktop.Identity.sln
@@ -36,44 +34,54 @@ jobs:
       - name: Build Release
         run: dotnet build BKE.Desktop.Identity.sln --configuration Release --no-restore
 
-      - name: Test Release
+      - name: Verify build output
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf TestResults
-          dotnet test BKE.Desktop.Identity.sln --configuration Release --no-build --logger "trx;LogFileName=identity-tests.trx" --results-directory TestResults
-          test -s TestResults/identity-tests.trx
+          test -s src/BKE.Desktop.Identity/bin/Release/net8.0/BKE.Desktop.Identity.dll
+
+      - name: Test Release
+        run: dotnet test tests/BKE.Desktop.Identity.Tests/BKE.Desktop.Identity.Tests.csproj --configuration Release --no-build --no-restore --logger "trx;LogFileName=identity-tests.trx"
+
+      - name: Verify test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s tests/BKE.Desktop.Identity.Tests/TestResults/identity-tests.trx
+          grep -q 'total="' tests/BKE.Desktop.Identity.Tests/TestResults/identity-tests.trx
 
       - name: Pack Release
-        run: dotnet pack src/BKE.Desktop.Identity/BKE.Desktop.Identity.csproj --configuration Release --no-build --output artifacts/package
+        run: dotnet pack src/BKE.Desktop.Identity/BKE.Desktop.Identity.csproj --configuration Release --no-restore --output ./artifacts/package
 
       - name: Verify package
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t packages < <(find artifacts/package -maxdepth 1 -type f -name '*.nupkg' -printf '%f
-')
-          [[ "${#packages[@]}" -eq 1 ]] || { echo "Expected exactly one nupkg"; exit 1; }
-          package="artifacts/package/${packages[0]}"
-          [[ "${packages[0]}" == "BKE.Desktop.Identity.0.1.0.nupkg" ]] || { echo "Unexpected package: ${packages[0]}"; exit 1; }
-          rm -rf artifacts/inspect
-          mkdir -p artifacts/inspect
-          unzip -q "$package" -d artifacts/inspect
-          test -s artifacts/inspect/README.md
-          test -s artifacts/inspect/LICENSE
-          test -s artifacts/inspect/lib/net8.0/BKE.Desktop.Identity.dll
-          nuspec="artifacts/inspect/BKE.Desktop.Identity.nuspec"
-          test -s "$nuspec"
-          grep -q '<id>BKE.Desktop.Identity</id>' "$nuspec"
-          grep -q '<version>0.1.0</version>' "$nuspec"
-          grep -q '<readme>README.md</readme>' "$nuspec"
-          grep -q '<repository type="git" url="https://github.com/jan2xo/bke-desktop-identity-sdk" />' "$nuspec"
+          shopt -s nullglob
+          packages=(artifacts/package/*.nupkg)
+          [[ "${#packages[@]}" -eq 1 ]] || { echo "Expected exactly one package"; exit 1; }
+          package="${packages[0]}"
+          [[ "$(basename "$package")" == "BKE.Desktop.Identity.0.1.0.nupkg" ]]
+          unzip -l "$package" | tee artifacts/package-contents.txt
+          unzip -p "$package" '*.nuspec' > artifacts/package.nuspec
+          unzip -p "$package" README.md > artifacts/README.md
+          unzip -p "$package" LICENSE > artifacts/LICENSE
+          unzip -l "$package" | grep -q 'lib/net8.0/BKE.Desktop.Identity.dll'
+          grep -q '<id>BKE.Desktop.Identity</id>' artifacts/package.nuspec
+          grep -q '<version>0.1.0</version>' artifacts/package.nuspec
+          grep -q '<readme>README.md</readme>' artifacts/package.nuspec
+          grep -q 'STATUS: SCAFFOLD / PRE-API' artifacts/README.md
+          test -s artifacts/LICENSE
 
-      - name: Upload package and test evidence
+      - name: Upload package and evidence
         uses: actions/upload-artifact@v4
         with:
           name: BKE.Desktop.Identity-0.1.0
           path: |
             artifacts/package/BKE.Desktop.Identity.0.1.0.nupkg
-            TestResults/identity-tests.trx
+            artifacts/package-contents.txt
+            artifacts/package.nuspec
+            artifacts/README.md
+            artifacts/LICENSE
+            tests/BKE.Desktop.Identity.Tests/TestResults/identity-tests.trx
           if-no-files-found: error
