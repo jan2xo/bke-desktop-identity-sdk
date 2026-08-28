@@ -31,7 +31,7 @@ jobs:
           [[ "$sdk" == 8.0.* ]] || { echo "Expected .NET 8 SDK, got $sdk"; exit 1; }
 
       - name: Restore
-        run: dotnet restore BKE.Desktop.Identity.sln --locked-mode
+        run: dotnet restore BKE.Desktop.Identity.sln
 
       - name: Build Release
         run: dotnet build BKE.Desktop.Identity.sln --configuration Release --no-restore
