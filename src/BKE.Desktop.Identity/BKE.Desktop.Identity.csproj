@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>BKE.Desktop.Identity</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>BKE</Authors>
+    <Company>BKE</Company>
+    <Description>Scaffold foundation for reusable BKE desktop installation identity and product manifest mechanics.</Description>
+    <PackageTags>BKE;desktop;identity</PackageTags>
+    <RepositoryUrl>https://github.com/jan2xo/bke-desktop-identity-sdk</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <IsPackable>true</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="README.md" />
+    <None Include="../../LICENSE" Pack="true" PackagePath="LICENSE" />
+  </ItemGroup>
+</Project>
